@@ -34,7 +34,21 @@ public class Usuario {
     @Column(nullable = false, length = 200)
     private String email;
 
-    @Column(nullable = false, length = 200)
+    @JsonIgnore
+    @Column(nullable = false)
     private String senha;
+
+    @Column(nullable = false, length = 50)
+    private String cargo = "padrao";
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Favorito> favoritos = new ArrayList<>();
+
+    public Usuario(String nome, String email, String senha) {
+        this.nome = nome;
+        this.email = email;
+        this.senha = senha;
+    }
 
 }
