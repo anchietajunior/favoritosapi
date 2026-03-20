@@ -31,6 +31,10 @@ public class Favorito {
     @Column(name = "atualizado_em")
     private LocalDateTime atualizadoEm;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private Usuario usuario;
+
     @PrePersist
     protected void onCreate() {
         this.criadoEm = LocalDateTime.now();
