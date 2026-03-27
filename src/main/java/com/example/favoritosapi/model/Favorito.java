@@ -1,5 +1,6 @@
 package com.example.favoritosapi.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -31,6 +32,8 @@ public class Favorito {
     @Column(name = "atualizado_em")
     private LocalDateTime atualizadoEm;
 
+    // @JsonIgnore evita referência circular na serialização JSON (Usuario -> Favorito -> Usuario)
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
