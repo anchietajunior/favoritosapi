@@ -94,29 +94,235 @@ src/main/java/com/example/favoritosapi/
 http://localhost:8080/swagger-ui.html
 ```
 
-## Exemplos de Uso
+## Guia Passo a Passo — Testando a API
 
-### Cadastrar usuário
+Abaixo está o fluxo completo para testar todas as funcionalidades da API usando `curl` no terminal.
+Você também pode usar o **Swagger UI** em `http://localhost:8080/swagger-ui.html` ou ferramentas como **Postman** e **Insomnia**.
+
+### 1. Cadastrar um usuário
+
+Crie um novo usuário informando nome, email e senha. A senha será criptografada automaticamente com BCrypt.
+
 ```bash
 curl -X POST http://localhost:8080/cadastrar \
   -H "Content-Type: application/json" \
-  -d '{"nome": "João", "email": "joao@email.com", "senha": "123456"}'
+  -d '{"nome": "João Silva", "email": "joao@email.com", "senha": "123456"}'
 ```
 
-### Fazer login
+**Resposta esperada (201 Created):**
+```json
+{
+  "id": 1,
+  "nome": "João Silva",
+  "email": "joao@email.com",
+  "cargo": "padrao"
+}
+```
+
+> A senha **nunca** aparece na resposta — ela é protegida com `@JsonIgnore`.
+
+Se tentar cadastrar o mesmo email novamente, receberá **409 Conflict**:
+```json
+{"erro": "Email já cadastrado"}
+```
+
+### 2. Fazer login e obter o token JWT
+
+Use as credenciais cadastradas para fazer login. A API retorna um token JWT válido por 24 horas.
+
 ```bash
 curl -X POST http://localhost:8080/entrar \
   -H "Content-Type: application/json" \
   -d '{"email": "joao@email.com", "senha": "123456"}'
 ```
 
-### Criar favorito (com token)
+**Resposta esperada (200 OK):**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIiwiZW1haWwiOiJqb2FvQGVtYWlsLmNvbSIsImlhdCI6MTcxMTU..."
+}
+```
+
+> **Copie este token** — ele será usado em todas as requisições autenticadas a seguir.
+
+Se o email não existir ou a senha estiver errada, receberá **401 Unauthorized**:
+```json
+{"erro": "Credenciais inválidas"}
+```
+
+### 3. Consultar dados do usuário logado
+
+Use o token no header `Authorization` para acessar a rota `/eu`.
+
+```bash
+curl -X GET http://localhost:8080/eu \
+  -H "Authorization: Bearer <cole-seu-token-aqui>"
+```
+
+**Resposta esperada (200 OK):**
+```json
+{
+  "id": 1,
+  "nome": "João Silva",
+  "email": "joao@email.com",
+  "cargo": "padrao"
+}
+```
+
+> Sem o token, a resposta será **403 Forbidden**.
+
+### 4. Criar um favorito
+
+Envie `titulo` e `url` no corpo da requisição. O favorito será associado automaticamente ao usuário do token.
+
 ```bash
 curl -X POST http://localhost:8080/favoritos \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <seu-token>" \
+  -H "Authorization: Bearer <cole-seu-token-aqui>" \
   -d '{"titulo": "Google", "url": "https://google.com"}'
 ```
+
+**Resposta esperada (201 Created):**
+```json
+{
+  "id": 1,
+  "titulo": "Google",
+  "url": "https://google.com",
+  "criadoEm": "2024-03-27T14:30:00",
+  "atualizadoEm": "2024-03-27T14:30:00"
+}
+```
+
+Crie mais alguns para testar a listagem:
+```bash
+curl -X POST http://localhost:8080/favoritos \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <cole-seu-token-aqui>" \
+  -d '{"titulo": "GitHub", "url": "https://github.com"}'
+
+curl -X POST http://localhost:8080/favoritos \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <cole-seu-token-aqui>" \
+  -d '{"titulo": "Stack Overflow", "url": "https://stackoverflow.com"}'
+```
+
+### 5. Listar todos os favoritos do usuário
+
+Retorna apenas os favoritos do usuário autenticado — outros usuários não conseguem ver seus dados.
+
+```bash
+curl -X GET http://localhost:8080/favoritos \
+  -H "Authorization: Bearer <cole-seu-token-aqui>"
+```
+
+**Resposta esperada (200 OK):**
+```json
+[
+  {"id": 1, "titulo": "Google", "url": "https://google.com", "criadoEm": "...", "atualizadoEm": "..."},
+  {"id": 2, "titulo": "GitHub", "url": "https://github.com", "criadoEm": "...", "atualizadoEm": "..."},
+  {"id": 3, "titulo": "Stack Overflow", "url": "https://stackoverflow.com", "criadoEm": "...", "atualizadoEm": "..."}
+]
+```
+
+### 6. Buscar um favorito por ID
+
+```bash
+curl -X GET http://localhost:8080/favoritos/1 \
+  -H "Authorization: Bearer <cole-seu-token-aqui>"
+```
+
+**Resposta esperada (200 OK):**
+```json
+{
+  "id": 1,
+  "titulo": "Google",
+  "url": "https://google.com",
+  "criadoEm": "2024-03-27T14:30:00",
+  "atualizadoEm": "2024-03-27T14:30:00"
+}
+```
+
+> Se o ID não existir ou pertencer a outro usuário, retorna **404 Not Found**.
+
+### 7. Atualizar um favorito
+
+```bash
+curl -X PUT http://localhost:8080/favoritos/1 \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <cole-seu-token-aqui>" \
+  -d '{"titulo": "Google Brasil", "url": "https://google.com.br"}'
+```
+
+**Resposta esperada (200 OK):**
+```json
+{
+  "id": 1,
+  "titulo": "Google Brasil",
+  "url": "https://google.com.br",
+  "criadoEm": "2024-03-27T14:30:00",
+  "atualizadoEm": "2024-03-27T14:35:00"
+}
+```
+
+> Note que o campo `atualizadoEm` muda, mas `criadoEm` permanece o mesmo.
+
+### 8. Excluir um favorito
+
+```bash
+curl -X DELETE http://localhost:8080/favoritos/1 \
+  -H "Authorization: Bearer <cole-seu-token-aqui>"
+```
+
+**Resposta esperada: 204 No Content** (sem corpo na resposta).
+
+Para confirmar que foi excluído, tente buscar novamente:
+```bash
+curl -X GET http://localhost:8080/favoritos/1 \
+  -H "Authorization: Bearer <cole-seu-token-aqui>"
+```
+Retornará **404 Not Found**.
+
+### 9. Testando isolamento entre usuários
+
+Cadastre um segundo usuário e obtenha o token dele:
+
+```bash
+curl -X POST http://localhost:8080/cadastrar \
+  -H "Content-Type: application/json" \
+  -d '{"nome": "Maria", "email": "maria@email.com", "senha": "654321"}'
+
+curl -X POST http://localhost:8080/entrar \
+  -H "Content-Type: application/json" \
+  -d '{"email": "maria@email.com", "senha": "654321"}'
+```
+
+Agora tente acessar os favoritos do João usando o token da Maria:
+```bash
+curl -X GET http://localhost:8080/favoritos/2 \
+  -H "Authorization: Bearer <token-da-maria>"
+```
+
+**Resposta: 404 Not Found** — Maria não tem acesso aos favoritos do João.
+
+A listagem de `/favoritos` com o token da Maria retornará uma lista vazia, pois ela ainda não criou nenhum favorito.
+
+### Dica: salvar o token em uma variável
+
+Para facilitar os testes no terminal, salve o token em uma variável:
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8080/entrar \
+  -H "Content-Type: application/json" \
+  -d '{"email": "joao@email.com", "senha": "123456"}' | jq -r '.token')
+
+echo $TOKEN
+
+# Agora use $TOKEN nas requisições:
+curl -X GET http://localhost:8080/favoritos \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+> Requer `jq` instalado. No Mac: `brew install jq`. No Ubuntu: `sudo apt install jq`.
 
 ## Testes Automatizados
 
